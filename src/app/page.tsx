@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useCallback } from 'react';
 import { Upload, FileText, AlertTriangle, Shield, AlertCircle, CheckCircle, Download, RefreshCw, Search, Filter } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,16 +90,17 @@ export default function Page() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      // Simulate progress
+      // Simulate progress with more realistic timings
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
+          if (prev >= 95) {
+            return 95; // Hold at 95% until response received
           }
-          return prev + 10;
+          // Increment slower as we get higher
+          const inc = prev < 50 ? 5 : prev < 80 ? 2 : 1;
+          return prev + inc;
         });
-      }, 500);
+      }, 1000);
 
       const response = await fetch('/api/diligence/analyze', {
         method: 'POST',
@@ -109,16 +111,25 @@ export default function Page() {
       setProgress(100);
 
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        let errorMessage = `Analysis failed: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) errorMessage = errorData.error;
+        } catch (e) {
+          // Fallback if not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const data: AnalysisResult = await response.json();
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      console.error('Analysis error:', err);
+      setError(err instanceof Error ? err.message : 'Analysis failed. The document might be too large or the AI service is busy.');
     } finally {
       setAnalyzing(false);
-      setProgress(0);
+      // Don't reset progress to 0 immediately so user sees 100% for a moment on success
+      if (error) setProgress(0);
     }
   };
 
@@ -199,11 +210,10 @@ export default function Page() {
             </CardHeader>
             <CardContent>
               <div
-                className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${
-                  selectedFile
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                    : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${selectedFile
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                  : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'
+                  }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onClick={() => document.getElementById('file-input')?.click()}
@@ -399,12 +409,11 @@ export default function Page() {
                   {filteredFlags.map((flag, index) => (
                     <Card
                       key={flag.id}
-                      className={`border-l-4 ${
-                        flag.severity === 'CRITICAL' ? 'border-l-red-500' :
+                      className={`border-l-4 ${flag.severity === 'CRITICAL' ? 'border-l-red-500' :
                         flag.severity === 'HIGH' ? 'border-l-orange-500' :
-                        flag.severity === 'MEDIUM' ? 'border-l-yellow-500' :
-                        'border-l-blue-500'
-                      }`}
+                          flag.severity === 'MEDIUM' ? 'border-l-yellow-500' :
+                            'border-l-blue-500'
+                        }`}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-3">

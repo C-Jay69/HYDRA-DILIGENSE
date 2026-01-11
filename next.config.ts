@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('pdf-parse');
+      }
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

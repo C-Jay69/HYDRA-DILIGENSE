@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { parsePDF } from '@/lib/diligence/pdf-parser';
@@ -38,8 +39,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if LLM should be used (disabled for now due to connection issues)
-    const useLLM = false; // Set to false to skip external AI service
+    // Check if LLM should be used
+    const useLLM = true; // Enabled for full AI-powered analysis
 
     // Save file temporarily
     const tempDir = join(process.cwd(), 'tmp');
@@ -47,9 +48,8 @@ export async function POST(request: NextRequest) {
 
     try {
       // Ensure tmp directory exists
-      const fs = await import('fs');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
+      if (!existsSync(tempDir)) {
+        await mkdir(tempDir, { recursive: true });
       }
 
       // Convert file to buffer and save

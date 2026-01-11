@@ -75,7 +75,6 @@ function chunkText(text: string, maxChars: number = 15000): string[] {
 async function callLLM(prompt: string): Promise<any> {
   try {
     // Using z-ai-web-dev-sdk for LLM analysis
-    // This uses open-source models instead of OpenAI/Anthropic
     const { LLM } = await import('z-ai-web-dev-sdk');
 
     // Create an LLM client instance
@@ -83,8 +82,10 @@ async function callLLM(prompt: string): Promise<any> {
       apiKey: process.env.AI_SDK_API_KEY || ''
     });
 
-    // Call the LLM with the prompt
-    const response = await llm.chat({
+    console.log('  Calling LLM API...');
+
+    // Call the LLM with the prompt and a timeout
+    const chatPromise = llm.chat({
       messages: [
         {
           role: 'system',
@@ -97,29 +98,46 @@ async function callLLM(prompt: string): Promise<any> {
       ],
       temperature: 0.3,
       maxTokens: 2000,
-      model: 'open-source' // Use open-source models
+      model: 'open-source'
     });
+
+    // 60 second timeout
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('LLM call timed out after 60s')), 60000)
+    );
+
+    const response = await Promise.race([chatPromise, timeoutPromise]) as any;
 
     // Parse the response
     const responseText = response.content || response.message?.content || '';
 
+    if (!responseText) {
+      console.warn('  LLM returned empty response');
+      return [];
+    }
+
     // Clean response (sometimes LLMs wrap JSON in markdown)
     let cleanedText = responseText.trim();
-    if (cleanedText.startsWith('```json')) {
-      cleanedText = cleanedText.substring(7);
+
+    // Remove markdown code blocks if present
+    const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/) ||
+      cleanedText.match(/```\s*([\s\S]*?)\s*```/);
+
+    if (jsonMatch) {
+      cleanedText = jsonMatch[1];
     }
-    if (cleanedText.startsWith('```')) {
-      cleanedText = cleanedText.substring(3);
-    }
-    if (cleanedText.endsWith('```')) {
-      cleanedText = cleanedText.substring(0, cleanedText.length - 3);
-    }
+
     cleanedText = cleanedText.trim();
 
     // Parse JSON
-    return JSON.parse(cleanedText);
+    try {
+      return JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('  Failed to parse LLM JSON:', cleanedText.substring(0, 100) + '...');
+      return [];
+    }
   } catch (error) {
-    console.error('LLM call error:', error);
+    console.error('  LLM call error:', error instanceof Error ? error.message : error);
     // Return empty array on error to allow analysis to continue
     return [];
   }
