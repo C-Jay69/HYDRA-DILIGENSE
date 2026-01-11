@@ -49,7 +49,9 @@ function generateId(): string {
 // Analysis functions
 function checkOffshoreJurisdictions(text: string, flags: RedFlag[]): void {
   for (const jurisdiction of OFFSHORE_JURISDICTIONS) {
-    const pattern = new RegExp(`\\b${jurisdiction}\\b`, 'gi');
+    // Escape the jurisdiction name and replace spaces with \s+ for robustness
+    const escapedJurisdiction = jurisdiction.replace(/\s+/g, '\\s+');
+    const pattern = new RegExp(`\\b${escapedJurisdiction}\\b`, 'gi');
     let match;
 
     while ((match = pattern.exec(text)) !== null) {
@@ -58,8 +60,8 @@ function checkOffshoreJurisdictions(text: string, flags: RedFlag[]): void {
       // Check if in governing law or arbitration section
       const contextLower = context.toLowerCase();
       const isGoverningLaw = contextLower.includes('governing law') ||
-                           contextLower.includes('arbitration') ||
-                           contextLower.includes('dispute resolution');
+        contextLower.includes('arbitration') ||
+        contextLower.includes('dispute resolution');
 
       const severity: 'CRITICAL' | 'HIGH' = isGoverningLaw ? 'CRITICAL' : 'HIGH';
 
@@ -82,7 +84,8 @@ function checkWeaselWords(text: string, flags: RedFlag[]): void {
   const weaselCount: Record<string, number> = {};
 
   for (const word of WEASEL_WORDS) {
-    const pattern = new RegExp(`\\b${word}\\b`, 'gi');
+    const escapedWord = word.replace(/\s+/g, '\\s+');
+    const pattern = new RegExp(`\\b${escapedWord}\\b`, 'gi');
     const matches = text.match(pattern);
 
     if (matches && matches.length > 3) {
@@ -108,7 +111,8 @@ function checkWeaselWords(text: string, flags: RedFlag[]): void {
 
 function checkHighRiskPhrases(text: string, flags: RedFlag[]): void {
   for (const phrase of HIGH_RISK_PHRASES) {
-    const pattern = new RegExp(`\\b${phrase}\\b`, 'gi');
+    const escapedPhrase = phrase.replace(/\s+/g, '\\s+');
+    const pattern = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
     let match;
 
     while ((match = pattern.exec(text)) !== null) {

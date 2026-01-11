@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     if (isServer) {
       config.externals = config.externals || [];
       if (Array.isArray(config.externals)) {
-        config.externals.push('pdf-parse');
+        config.externals.push('pdf-parse', 'pdf2json');
       }
     }
     return config;

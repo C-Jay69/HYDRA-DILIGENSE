@@ -75,16 +75,24 @@ function chunkText(text: string, maxChars: number = 15000): string[] {
 async function callLLM(prompt: string): Promise<any> {
   try {
     // Using z-ai-web-dev-sdk for LLM analysis
-    const { LLM } = await import('z-ai-web-dev-sdk');
+    const sdk = await import('z-ai-web-dev-sdk');
+
+    // Handle different export patterns (named or default)
+    const LLMClass = sdk.LLM || (sdk as any).default?.LLM || sdk.default;
+
+    if (typeof LLMClass !== 'function') {
+      console.error('  LLM is not a constructor. SDK content:', Object.keys(sdk));
+      return [];
+    }
 
     // Create an LLM client instance
-    const llm = new LLM({
+    const llm = new (LLMClass as any)({
       apiKey: process.env.AI_SDK_API_KEY || ''
     });
 
     console.log('  Calling LLM API...');
 
-    // Call the LLM with the prompt and a timeout
+    // ... (rest of the function with timeout logic)
     const chatPromise = llm.chat({
       messages: [
         {
@@ -101,7 +109,6 @@ async function callLLM(prompt: string): Promise<any> {
       model: 'open-source'
     });
 
-    // 60 second timeout
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('LLM call timed out after 60s')), 60000)
     );
@@ -109,27 +116,31 @@ async function callLLM(prompt: string): Promise<any> {
     const response = await Promise.race([chatPromise, timeoutPromise]) as any;
 
     // Parse the response
-    const responseText = response.content || response.message?.content || '';
+    const responseText = response.content || response.message?.content || response.text || '';
 
     if (!responseText) {
       console.warn('  LLM returned empty response');
       return [];
     }
 
-    // Clean response (sometimes LLMs wrap JSON in markdown)
+    // Clean response
     let cleanedText = responseText.trim();
-
-    // Remove markdown code blocks if present
     const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/) ||
       cleanedText.match(/```\s*([\s\S]*?)\s*```/);
 
     if (jsonMatch) {
       cleanedText = jsonMatch[1];
+    } else if (cleanedText.includes('[') && cleanedText.includes(']')) {
+      // Fallback: try to find the array if no code block
+      const start = cleanedText.indexOf('[');
+      const end = cleanedText.lastIndexOf(']');
+      if (start !== -1 && end !== -1 && end > start) {
+        cleanedText = cleanedText.substring(start, end + 1);
+      }
     }
 
     cleanedText = cleanedText.trim();
 
-    // Parse JSON
     try {
       return JSON.parse(cleanedText);
     } catch (parseError) {
@@ -138,10 +149,10 @@ async function callLLM(prompt: string): Promise<any> {
     }
   } catch (error) {
     console.error('  LLM call error:', error instanceof Error ? error.message : error);
-    // Return empty array on error to allow analysis to continue
     return [];
   }
 }
+
 
 async function analyzeChunk(chunk: string, chunkIndex: number): Promise<RedFlag[]> {
   try {
