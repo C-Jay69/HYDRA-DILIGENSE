@@ -299,6 +299,7 @@ export async function analyzeWithRules(text: string): Promise<RedFlag[]> {
   const flags: RedFlag[] = [];
 
   console.log('Running rule-based analysis...');
+  console.log('Rule engine text preview:', text.substring(0, 500).replace(/\n/g, ' '));
 
   // Run all checks
   checkOffshoreJurisdictions(text, flags);

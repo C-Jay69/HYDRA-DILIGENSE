@@ -75,25 +75,19 @@ function chunkText(text: string, maxChars: number = 15000): string[] {
 async function callLLM(prompt: string): Promise<any> {
   try {
     // Using z-ai-web-dev-sdk for LLM analysis
-    const sdk = await import('z-ai-web-dev-sdk');
+    const ZAI = await import('z-ai-web-dev-sdk').then(m => m.default || m);
 
-    // Handle different export patterns (named or default)
-    const LLMClass = sdk.LLM || (sdk as any).default?.LLM || sdk.default;
-
-    if (typeof LLMClass !== 'function') {
-      console.error('  LLM is not a constructor. SDK content:', Object.keys(sdk));
+    if (typeof ZAI.create !== 'function') {
+      console.error('  ZAI.create is not a function. SDK content:', Object.keys(ZAI));
       return [];
     }
 
-    // Create an LLM client instance
-    const llm = new (LLMClass as any)({
-      apiKey: process.env.AI_SDK_API_KEY || ''
-    });
+    const zai = await ZAI.create();
 
-    console.log('  Calling LLM API...');
+    console.log('  Calling LLM API via zai.chat.completions.create...');
 
-    // ... (rest of the function with timeout logic)
-    const chatPromise = llm.chat({
+    // Call the LLM with the prompt and a timeout
+    const chatPromise = zai.chat.completions.create({
       messages: [
         {
           role: 'system',
@@ -104,9 +98,8 @@ async function callLLM(prompt: string): Promise<any> {
           content: prompt
         }
       ],
-      temperature: 0.3,
-      maxTokens: 2000,
-      model: 'open-source'
+      stream: false,
+      thinking: { type: "disabled" }
     });
 
     const timeoutPromise = new Promise((_, reject) =>
@@ -115,8 +108,11 @@ async function callLLM(prompt: string): Promise<any> {
 
     const response = await Promise.race([chatPromise, timeoutPromise]) as any;
 
-    // Parse the response
-    const responseText = response.content || response.message?.content || response.text || '';
+    // Parse the response based on the observed structure in skills/LLM/scripts/chat.ts
+    const responseText = response.choices?.[0]?.message?.content ||
+      response.content ||
+      response.message?.content ||
+      JSON.stringify(response);
 
     if (!responseText) {
       console.warn('  LLM returned empty response');
