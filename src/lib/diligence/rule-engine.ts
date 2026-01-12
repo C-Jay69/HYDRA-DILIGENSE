@@ -301,6 +301,65 @@ function checkCustomerConcentration(text: string, flags: RedFlag[]): void {
   }
 }
 
+function checkRequiredProvisions(text: string, flags: RedFlag[]): void {
+  const requiredProvisions = [
+    {
+      id: "escrow",
+      keywords: ["escrow", "holdback", "retention"],
+      title: "Missing Escrow/Holdback Provision"
+    },
+    {
+      id: "survival_period",
+      keywords: ["survival", "survive closing", "survival period"],
+      title: "Missing Survival Period Provision"
+    },
+    {
+      id: "mac_clause",
+      keywords: ["material adverse", "material adverse change", "material adverse effect"],
+      title: "Missing MAC Clause"
+    },
+    {
+      id: "liability_cap",
+      keywords: ["cap", "limitation of liability", "maximum liability"],
+      title: "Missing Liability Cap"
+    },
+    {
+      id: "environmental",
+      keywords: ["environmental", "hazardous", "pollution", "cleanup"],
+      title: "Missing Environmental Provision"
+    },
+    {
+      id: "employee_benefits",
+      keywords: ["employee benefit", "pension", "401k", "ERISA"],
+      title: "Missing Employee Benefits Provision"
+    }
+  ];
+
+  const textLower = text.toLowerCase();
+
+  for (const provision of requiredProvisions) {
+    // Check if any keyword matches (using fuzzy match logic silently or simple lower case)
+    const hasProvision = provision.keywords.some(keyword => {
+      const pattern = new RegExp(fuzzyPattern(keyword), 'i');
+      return pattern.test(text);
+    });
+
+    if (!hasProvision) {
+      flags.push({
+        id: generateId(),
+        category: 'missing_info',
+        severity: 'HIGH',
+        title: provision.title,
+        description: `This M&A agreement lacks a ${provision.id.replace('_', ' ')} provision, which is standard and critical for protecting the parties.`,
+        location: "N/A - Provision not found in document",
+        score: 7,
+        source: "rule_engine",
+        recommendation: `Add a comprehensive ${provision.id.replace('_', ' ')} provision to protect both parties.`
+      });
+    }
+  }
+}
+
 // Main analysis function
 export async function analyzeWithRules(text: string): Promise<RedFlag[]> {
   const flags: RedFlag[] = [];
@@ -317,6 +376,7 @@ export async function analyzeWithRules(text: string): Promise<RedFlag[]> {
   checkPaymentRedFlags(text, flags);
   checkLiabilityLimitations(text, flags);
   checkCustomerConcentration(text, flags);
+  checkRequiredProvisions(text, flags);
 
   console.log(`Rule engine found ${flags.length} red flags`);
 

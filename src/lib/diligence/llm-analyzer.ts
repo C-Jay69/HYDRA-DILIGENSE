@@ -11,32 +11,35 @@ export interface RedFlag {
   recommendation?: string;
 }
 
-const ANALYSIS_PROMPT = `You are an expert M&A attorney reviewing a contract section for red flags.
+const ANALYSIS_PROMPT = `You are an expert M&A attorney reviewing a contract.
 
-Analyze the following contract section and identify any red flags. NOTE: The text may have extra spaces between characters (e.g., "P a y m e n t") due to PDF extraction artifacts. Ignore these gaps and analyze the underlying words.
+Analyze this contract for TWO types of red flags:
 
-Focus areas:
-- Vague or undefined terms that create ambiguity
-- Missing critical information or deferred disclosures
-- Unusual liability limitations or indemnification gaps
-- Suspicious payment structures or undefined earnout terms
-- Jurisdiction or dispute resolution concerns
-- Customer concentration or key person dependencies
-- Tax, IP, compliance, or regulatory risks
-- Any other material concerns
+1. PROBLEMATIC PROVISIONS (what's wrong with what exists):
+   - Vague or undefined terms
+   - Weak protections
+   - Unusual structures
+   
+2. MISSING PROVISIONS (what should exist but doesn't):
+   - Escrow/holdback provisions
+   - Survival periods for representations
+   - Material Adverse Change (MAC) clauses
+   - Liability caps
+   - Environmental liability provisions
+   - Employee benefit transition terms
 
-For EACH red flag you identify, return a JSON object with:
+For EACH issue found, return a JSON object with:
 - category: one of [jurisdiction, financial, legal, operational, compliance, vague_language, missing_info, liability, intellectual_property, tax, employee, customer, other]
 - severity: one of [CRITICAL, HIGH, MEDIUM, LOW]
 - title: brief title (max 80 chars)
 - description: explanation of why this is concerning (2-3 sentences)
-- quote: exact text from the section that triggered this flag
+- quote: exact text from the section that triggered this flag (use "N/A" if it is a missing provision)
 - score: risk score from 1-10
 - recommendation: specific action to take
 
 Return ONLY a JSON array of red flags. If no red flags, return empty array [].
 
-Contract section:
+Contract text:
 {text}
 
 JSON response:`;
