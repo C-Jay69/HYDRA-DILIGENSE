@@ -13,7 +13,9 @@ export interface RedFlag {
 
 const ANALYSIS_PROMPT = `You are an expert M&A attorney reviewing a contract section for red flags.
 
-Analyze the following contract section and identify any red flags related to:
+Analyze the following contract section and identify any red flags. NOTE: The text may have extra spaces between characters (e.g., "P a y m e n t") due to PDF extraction artifacts. Ignore these gaps and analyze the underlying words.
+
+Focus areas:
 - Vague or undefined terms that create ambiguity
 - Missing critical information or deferred disclosures
 - Unusual liability limitations or indemnification gaps

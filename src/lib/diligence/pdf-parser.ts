@@ -11,7 +11,26 @@ export async function parsePDF(filePath: string): Promise<string> {
       });
 
       pdfParser.on("pdfParser_dataReady", () => {
-        const text = pdfParser.getRawTextContent();
+        let text = pdfParser.getRawTextContent();
+
+        // Normalize text: pdf2json raw text often has extra spaces between characters
+        // and uses specific page break markers.
+        text = text.replace(/----------------Page \(\d+\) Break----------------/g, '\n');
+
+        // Fix spaced-out characters (e.g., "P a y m e n t" -> "Payment")
+        // This regex looks for 3 or more occurrences of "char space" to identify spaced text
+        if (/(?:[A-Za-z]\s){3,}/.test(text)) {
+          // First, handle the most obvious spaced-out words
+          text = text.replace(/([A-Z])\s(?=[A-Z]\s)/g, '$1');
+          // Then handle lowercase if they are also spaced
+          text = text.replace(/([a-z])\s(?=[a-z]\s)/g, '$1');
+          // Final pass: reduce double spaces to single spaces
+          text = text.replace(/\s+/g, ' ');
+        } else {
+          // Regular cleanup of multiple spaces
+          text = text.replace(/\s+/g, ' ');
+        }
+
         console.log(`Successfully extracted ${text.length} characters from PDF using pdf2json: ${filePath}`);
         resolve(text || '');
       });

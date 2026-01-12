@@ -46,12 +46,20 @@ function generateId(): string {
   return `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// Helper to create a regex that handles spaced-out characters
+// e.g. "Cayman" -> "C\s*a\s*y\s*m\s*a\s*n"
+function fuzzyPattern(term: string): string {
+  return term
+    .split('')
+    .map(c => /[A-Za-z0-9]/.test(c) ? `${c}\\s*` : '\\s*')
+    .join('')
+    .replace(/(\\s\*)+$/, ''); // Remove trailing space marker
+}
+
 // Analysis functions
 function checkOffshoreJurisdictions(text: string, flags: RedFlag[]): void {
   for (const jurisdiction of OFFSHORE_JURISDICTIONS) {
-    // Escape the jurisdiction name and replace spaces with \s+ for robustness
-    const escapedJurisdiction = jurisdiction.replace(/\s+/g, '\\s+');
-    const pattern = new RegExp(`\\b${escapedJurisdiction}\\b`, 'gi');
+    const pattern = new RegExp(fuzzyPattern(jurisdiction), 'gi');
     let match;
 
     while ((match = pattern.exec(text)) !== null) {
@@ -111,8 +119,7 @@ function checkWeaselWords(text: string, flags: RedFlag[]): void {
 
 function checkHighRiskPhrases(text: string, flags: RedFlag[]): void {
   for (const phrase of HIGH_RISK_PHRASES) {
-    const escapedPhrase = phrase.replace(/\s+/g, '\\s+');
-    const pattern = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
+    const pattern = new RegExp(fuzzyPattern(phrase), 'gi');
     let match;
 
     while ((match = pattern.exec(text)) !== null) {

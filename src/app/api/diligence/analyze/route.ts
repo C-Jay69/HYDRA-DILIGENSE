@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
 
       // Step 1: Parse PDF
       const pdfText = await parsePDF(tempFilePath);
+      console.log('--- ANALYSIS V2 START ---');
       console.log(`[1/4] PDF parsed: ${pdfText.length} characters`);
 
       // Step 2: Run rule-based analysis
@@ -123,3 +124,5 @@ export async function GET() {
     },
   });
 }
+ 
+ 
