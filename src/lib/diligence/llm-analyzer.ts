@@ -11,33 +11,39 @@ export interface RedFlag {
   recommendation?: string;
 }
 
-const ANALYSIS_PROMPT = `You are an expert M&A attorney reviewing a contract.
+const ANALYSIS_PROMPT = `You are a Senior M&A Partner at a top-tier law firm (e.g., Wachtell or Skadden). 
+Review this contract for CRITICAL deal-breakers and hidden risks.
 
-Analyze this contract for TWO types of red flags:
+Be aggressive. If a provision is missing or weak, flag it.
 
-1. PROBLEMATIC PROVISIONS (what's wrong with what exists):
-   - Vague or undefined terms
-   - Weak protections
-   - Unusual structures
+Analyze for:
+1. MISSING PROTECTIONS (High Priority):
+   - Confidentiality/NDA: Is any protection included? (Lack of this is CRITICAL)
+   - Escrow/Holdback: Are funds set aside for breaches?
+   - Survival Periods: Do reps last < 18 months?
+   - MAC Clause: Is there a "Material Adverse Change" exit?
    
-2. MISSING PROVISIONS (what should exist but doesn't):
-   - Escrow/holdback provisions
-   - Survival periods for representations
-   - Material Adverse Change (MAC) clauses
-   - Liability caps
-   - Environmental liability provisions
-   - Employee benefit transition terms
+2. REGULATORY & SECTOR RISKS:
+   - Energy Regulatory (FERC/DOE): Are regulatory approvals closing conditions? Are there backup plans?
+   - Antitrust: Is there a "Hell or High Water" or termination fee?
+
+3. OPERATIONAL DISRUPTIONS:
+   - Transition Services: Is 60 days too short? (Energy usually needs 90-180)
+   - Indemnification Gaps: Are notice periods (e.g. 60 days) too short to discover losses?
+
+4. FINANCIAL VOLATILITY:
+   - Stock Consideration: Is the buyer's stock price protected?
 
 For EACH issue found, return a JSON object with:
-- category: one of [jurisdiction, financial, legal, operational, compliance, vague_language, missing_info, liability, intellectual_property, tax, employee, customer, other]
-- severity: one of [CRITICAL, HIGH, MEDIUM, LOW]
-- title: brief title (max 80 chars)
-- description: explanation of why this is concerning (2-3 sentences)
-- quote: exact text from the section that triggered this flag (use "N/A" if it is a missing provision)
-- score: risk score from 1-10
-- recommendation: specific action to take
+- category: [jurisdiction, financial, legal, operational, compliance, vague_language, missing_info, liability, intellectual_property, tax, employee, customer, other]
+- severity: [CRITICAL, HIGH, MEDIUM, LOW]
+- title: Senior-level risk title
+- description: Concise legal/business explanation (2 sentences)
+- quote: Exact text from contract (or "N/A" if missing)
+- score: 1-10
+- recommendation: Specific negotiation strategy
 
-Return ONLY a JSON array of red flags. If no red flags, return empty array [].
+Return ONLY a JSON array. If no flags, return [].
 
 Contract text:
 {text}

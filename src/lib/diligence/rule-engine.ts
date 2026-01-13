@@ -332,6 +332,11 @@ function checkRequiredProvisions(text: string, flags: RedFlag[]): void {
       id: "employee_benefits",
       keywords: ["employee benefit", "pension", "401k", "ERISA"],
       title: "Missing Employee Benefits Provision"
+    },
+    {
+      id: "confidentiality",
+      keywords: ["confidential", "non-disclosure", "ndia", "proprietary information"],
+      title: "Missing Confidentiality Provision"
     }
   ];
 
@@ -345,18 +350,126 @@ function checkRequiredProvisions(text: string, flags: RedFlag[]): void {
     });
 
     if (!hasProvision) {
+      const severity = provision.id === 'confidentiality' ? 'CRITICAL' : 'HIGH';
+      const score = provision.id === 'confidentiality' ? 10 : 7;
+
       flags.push({
         id: generateId(),
-        category: 'missing_info',
-        severity: 'HIGH',
+        category: provision.id === 'confidentiality' ? 'legal' : 'missing_info',
+        severity,
         title: provision.title,
-        description: `This M&A agreement lacks a ${provision.id.replace('_', ' ')} provision, which is standard and critical for protecting the parties.`,
+        description: provision.id === 'confidentiality'
+          ? "The agreement lacks a confidentiality clause, exposing deal terms and strategic data to misuse. This is a non-negotiable term in M&A."
+          : `This M&A agreement lacks a ${provision.id.replace('_', ' ')} provision, which is standard and critical for protecting the parties.`,
         location: "N/A - Provision not found in document",
-        score: 7,
+        score,
         source: "rule_engine",
-        recommendation: `Add a comprehensive ${provision.id.replace('_', ' ')} provision to protect both parties.`
+        recommendation: provision.id === 'confidentiality'
+          ? "STOP. Demand a robust confidentiality and non-disclosure clause immediately."
+          : `Add a comprehensive ${provision.id.replace('_', ' ')} provision to protect both parties.`
       });
     }
+  }
+}
+
+function checkRegulatoryRisks(text: string, flags: RedFlag[]): void {
+  const regulatoryKeywords = [
+    { term: "FERC", title: "Federal Energy Regulatory Commission (FERC) Approval Required" },
+    { term: "Regulatory Approval", title: "Material Regulatory Closing Condition" },
+    { term: "Antitrust", title: "Antitrust/Competition Filing Required" }
+  ];
+
+  for (const { term, title } of regulatoryKeywords) {
+    const pattern = new RegExp(fuzzyPattern(term), 'gi');
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+      const context = getContext(text, match.index, match.index + match[0].length);
+
+      flags.push({
+        id: generateId(),
+        category: 'compliance',
+        severity: 'HIGH',
+        title,
+        description: `The deal hinges on ${term} approval. Energy and utility deals face high regulatory scrutiny; denial could kill the transaction.`,
+        location: context,
+        score: 8,
+        source: 'rule_engine',
+        recommendation: `Develop a regulatory strategy and backup plan (e.g., 'hell or high water' provisions or extended timelines).`
+      });
+    }
+  }
+}
+
+function checkShortNoticePeriods(text: string, flags: RedFlag[]): void {
+  // Check transition services period
+  const transitionPattern = /(?:transition|integration).*?(\d+)\s*(?:days?|weeks?)/gi;
+  let match;
+
+  while ((match = transitionPattern.exec(text)) !== null) {
+    const value = parseInt(match[1]);
+    const isWeeks = match[0].toLowerCase().includes('week');
+    const days = isWeeks ? value * 7 : value;
+
+    if (days < 90) {
+      const context = getContext(text, match.index, match.index + match[0].length);
+      flags.push({
+        id: generateId(),
+        category: 'operational',
+        severity: 'MEDIUM',
+        title: `Short Transition Period (${days} days)`,
+        description: `A ${days}-day transition period is often insufficient for complex integrations (IT, HR, Compliance). Risks operational disruption.`,
+        location: context,
+        score: 6,
+        source: 'rule_engine',
+        recommendation: "Negotiate a 90-180 day transition period to ensure a stable handover."
+      });
+    }
+  }
+
+  // Check indemnification claim notice period
+  const noticePattern = /(?:claim|indemnification)\s+notice.*?(\d+)\s*(?:days?|weeks?)/gi;
+  while ((match = noticePattern.exec(text)) !== null) {
+    const value = parseInt(match[1]);
+    const isWeeks = match[0].toLowerCase().includes('week');
+    const days = isWeeks ? value * 7 : value;
+
+    if (days < 90) {
+      const context = getContext(text, match.index, match.index + match[0].length);
+      flags.push({
+        id: generateId(),
+        category: 'liability',
+        severity: 'MEDIUM',
+        title: `Aggressive Claim Notice Period (${days} days)`,
+        description: `Discovery of liabilities often takes longer than ${days} days. This compressed window may bar valid claims.`,
+        location: context,
+        score: 5,
+        source: 'rule_engine',
+        recommendation: "Request a 90-180 day claim notice period to allow for post-closing audits and discovery."
+      });
+    }
+  }
+}
+
+function checkStockConsideration(text: string, flags: RedFlag[]): void {
+  const stockPattern = /(\d+(?:\.\d+)?)\s*shares?\s+of\s+(?:buyer|purchaser|parent)/gi;
+  let match;
+
+  while ((match = stockPattern.exec(text)) !== null) {
+    const ratio = match[1];
+    const context = getContext(text, match.index, match.index + match[0].length);
+
+    flags.push({
+      id: generateId(),
+      category: 'financial',
+      severity: 'LOW',
+      title: `Stock Consideration Volatility (Ratio: ${ratio})`,
+      description: `Payment includes buyer stock. Market volatility could devalue the deal significantly between signing and closing.`,
+      location: context,
+      score: 3,
+      source: 'rule_engine',
+      recommendation: "Implement a stock collar (price floor/ceiling) or an escrow to hedge against buyer stock price drops."
+    });
   }
 }
 
@@ -377,6 +490,9 @@ export async function analyzeWithRules(text: string): Promise<RedFlag[]> {
   checkLiabilityLimitations(text, flags);
   checkCustomerConcentration(text, flags);
   checkRequiredProvisions(text, flags);
+  checkRegulatoryRisks(text, flags);
+  checkShortNoticePeriods(text, flags);
+  checkStockConsideration(text, flags);
 
   console.log(`Rule engine found ${flags.length} red flags`);
 
